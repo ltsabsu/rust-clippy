@@ -43,7 +43,7 @@ def main():
     html = template.substitute(list="\n".join(links))
 
     path = os.path.join(args.outdir, "index.html")
-    with open(path, "w") as out:
+    with file_path.open("w", encoding="utf-8") as file:
         out.write(html)
         print(f"wrote HTML to {path}")
 
