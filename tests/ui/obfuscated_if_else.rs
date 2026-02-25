@@ -46,6 +46,18 @@ fn main() {
 
     let partial = true.then_some(1);
     partial.unwrap_or_else(|| n * 2); // not lint
+
+    true.then_some(()).unwrap_or_default();
+    //~^ obfuscated_if_else
+
+    true.then(|| ()).unwrap_or_default();
+    //~^ obfuscated_if_else
+
+    true.then_some(1).unwrap_or_default();
+    //~^ obfuscated_if_else
+
+    true.then(|| 1).unwrap_or_default();
+    //~^ obfuscated_if_else
 }
 
 fn issue11141() {
@@ -73,5 +85,11 @@ fn issue11141() {
 
     // Parentheses are not required for a deref followed by a cast
     let _ = *true.then_some(&42).unwrap_or(&17) as u8;
+    //~^ obfuscated_if_else
+}
+
+#[allow(clippy::useless_format)]
+fn issue16288() {
+    true.then(|| format!("this is a test")).unwrap_or_default();
     //~^ obfuscated_if_else
 }

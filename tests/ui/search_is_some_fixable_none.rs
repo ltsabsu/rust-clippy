@@ -27,14 +27,38 @@ fn main() {
         //~^ search_is_some
         .find(|x| [1, 2, 3].contains(x) || *x == 0 || [4, 5, 6].contains(x) || *x == -1)
         .is_none();
+    // Check `find().is_none()`, multi-line case.
+    let _ = v
+        //~^ search_is_some
+        .iter()
+        .find(|&x| {
+            *x < 0 //
+        })
+        .is_none();
 
     // Check `position().is_none()`, single-line case.
     let _ = v.iter().position(|&x| x < 0).is_none();
     //~^ search_is_some
+    // Check `position().is_none()`, multi-line case.
+    let _ = v
+        //~^ search_is_some
+        .iter()
+        .position(|&x| {
+            x < 0 //
+        })
+        .is_none();
 
     // Check `rposition().is_none()`, single-line case.
     let _ = v.iter().rposition(|&x| x < 0).is_none();
     //~^ search_is_some
+    // Check `rposition().is_none()`, multi-line case.
+    let _ = v
+        //~^ search_is_some
+        .iter()
+        .rposition(|&x| {
+            x < 0 //
+        })
+        .is_none();
 
     let s1 = String::from("hello world");
     let s2 = String::from("world");
@@ -221,10 +245,11 @@ mod issue7392 {
     }
 
     fn ref_bindings() {
-        let _ = [&(&1, 2), &(&3, 4), &(&5, 4)].iter().find(|(&x, y)| x == *y).is_none();
-        //~^ search_is_some
-        let _ = [&(&1, 2), &(&3, 4), &(&5, 4)].iter().find(|&(&x, y)| x == *y).is_none();
-        //~^ search_is_some
+        let _ = [&(&1, 2), &(&3, 4), &(&5, 4)]
+            //~^ search_is_some
+            .iter()
+            .find(|&&&(&x, ref y)| x == *y)
+            .is_none();
     }
 
     fn test_string_1(s: &str) -> bool {

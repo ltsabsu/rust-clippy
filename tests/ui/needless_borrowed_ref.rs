@@ -4,7 +4,7 @@
     irrefutable_let_patterns,
     non_shorthand_field_patterns,
     clippy::needless_borrow,
-    clippy::needless_if
+    clippy::needless_ifs
 )]
 
 fn main() {}
@@ -89,7 +89,7 @@ fn should_not_lint(
     tuple_struct: TupleStruct,
     s: Struct,
 ) {
-    if let [ref a] = slice {}
+    if let [a] = slice {}
     if let &[ref a, b] = slice {}
     if let &[ref a, .., b] = slice {}
 

@@ -1,14 +1,12 @@
-#![warn(clippy::all)]
+#![feature(if_let_guard)]
 #![warn(clippy::redundant_pattern_matching)]
 #![allow(
-    unused_must_use,
     clippy::needless_bool,
-    clippy::needless_if,
+    clippy::needless_ifs,
     clippy::match_like_matches_macro,
     clippy::equatable_if_let,
     clippy::if_same_then_else
 )]
-#![feature(let_chains, if_let_guard)]
 
 fn issue_11174<T>(boolean: bool, maybe_some: Option<T>) -> bool {
     matches!(maybe_some, None if !boolean)
@@ -203,4 +201,46 @@ fn issue13902() {
         let _ = matches!(*p, None);
         //~^ redundant_pattern_matching
     }
+}
+
+fn issue16045() {
+    fn f() -> Result<(), ()> {
+        let x = Ok::<_, ()>(Some(123));
+        if let Some(_) = x? {
+            //~^ redundant_pattern_matching
+        }
+
+        Ok(())
+    }
+
+    async fn g() {
+        struct F {
+            x: Option<u32>,
+        }
+
+        impl Future for F {
+            type Output = Option<u32>;
+
+            fn poll(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+                std::task::Poll::Ready(self.x)
+            }
+        }
+        let x = F { x: Some(123) };
+        if let Some(_) = x.await {
+            //~^ redundant_pattern_matching
+        }
+    }
+}
+
+fn issue14989() {
+    macro_rules! x {
+        () => {
+            None::<i32>
+        };
+    }
+
+    if let Some(_) = (x! {}) {};
+    //~^ redundant_pattern_matching
+    while let Some(_) = (x! {}) {}
+    //~^ redundant_pattern_matching
 }

@@ -3,7 +3,7 @@
 #![allow(
     unused,
     clippy::uninlined_format_args,
-    clippy::needless_if,
+    clippy::needless_ifs,
     clippy::redundant_guards,
     clippy::redundant_pattern_matching,
     clippy::manual_unwrap_or_default
@@ -269,7 +269,7 @@ fn main() {
     };
 }
 
-fn issue_10808(bar: Option<i32>) {
+fn issue10808(bar: Option<i32>) {
     match bar {
         Some(v) => unsafe {
             let r = &v as *const i32;
@@ -397,6 +397,7 @@ pub struct Data([u8; 4]);
 const DATA: Data = Data([1, 2, 3, 4]);
 const CONST_I32: i32 = 1;
 
+// https://github.com/rust-lang/rust-clippy/issues/13012
 fn irrefutable_match() {
     match DATA {
         DATA => println!(),
@@ -460,4 +461,46 @@ fn irrefutable_match() {
     }
     //~^^^^^^^^^ single_match
     //~| NOTE: you might want to preserve the comments from inside the `match`
+}
+
+fn issue14493() {
+    macro_rules! mac {
+        (some) => {
+            Some(42)
+        };
+        (any) => {
+            _
+        };
+        (str) => {
+            "foo"
+        };
+    }
+
+    match mac!(some) {
+        Some(u) => println!("{u}"),
+        _ => (),
+    }
+    //~^^^^ single_match
+
+    // When scrutinee comes from macro, do not tell that arm will always match
+    // and suggest an equality check instead.
+    match mac!(str) {
+        "foo" => println!("eq"),
+        _ => (),
+    }
+    //~^^^^ ERROR: for an equality check
+
+    // Do not lint if any match arm come from expansion
+    match Some(0) {
+        mac!(some) => println!("eq"),
+        mac!(any) => println!("neq"),
+    }
+    match Some(0) {
+        Some(42) => println!("eq"),
+        mac!(any) => println!("neq"),
+    }
+    match Some(0) {
+        mac!(some) => println!("eq"),
+        _ => println!("neq"),
+    }
 }

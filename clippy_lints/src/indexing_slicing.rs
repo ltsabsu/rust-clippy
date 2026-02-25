@@ -2,13 +2,12 @@ use clippy_config::Conf;
 use clippy_utils::consts::{ConstEvalCtxt, Constant};
 use clippy_utils::diagnostics::{span_lint, span_lint_and_then};
 use clippy_utils::ty::{deref_chain, get_adt_inherent_method};
-use clippy_utils::{higher, is_from_proc_macro, is_in_test};
+use clippy_utils::{higher, is_from_proc_macro, is_in_test, sym};
 use rustc_ast::ast::RangeLimits;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty};
 use rustc_session::impl_lint_pass;
-use rustc_span::sym;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -45,7 +44,7 @@ declare_clippy_lint! {
     /// Checks for usage of indexing or slicing that may panic at runtime.
     ///
     /// This lint does not report on indexing or slicing operations
-    /// that always panic, clippy's `out_of_bound_indexing` already
+    /// that always panic, [out_of_bounds_indexing](#out_of_bounds_indexing) already
     /// handles those cases.
     ///
     /// ### Why restrict this?
@@ -125,7 +124,7 @@ impl<'tcx> LateLintPass<'tcx> for IndexingSlicing {
             let note = "the suggestion might not be applicable in constant blocks";
             let ty = cx.typeck_results().expr_ty(array).peel_refs();
             let allowed_in_tests = self.allow_indexing_slicing_in_tests && is_in_test(cx.tcx, expr.hir_id);
-            if let Some(range) = higher::Range::hir(index) {
+            if let Some(range) = higher::Range::hir(cx, index) {
                 // Ranged indexes, i.e., &x[n..m], &x[n..], &x[..n] and &x[..]
                 if let ty::Array(_, s) = ty.kind() {
                     let size: u128 = if let Some(size) = s.try_to_target_usize(cx.tcx) {
@@ -136,28 +135,28 @@ impl<'tcx> LateLintPass<'tcx> for IndexingSlicing {
 
                     let const_range = to_const_range(cx, range, size);
 
-                    if let (Some(start), _) = const_range {
-                        if start > size {
-                            span_lint(
-                                cx,
-                                OUT_OF_BOUNDS_INDEXING,
-                                range.start.map_or(expr.span, |start| start.span),
-                                "range is out of bounds",
-                            );
-                            return;
-                        }
+                    if let (Some(start), _) = const_range
+                        && start > size
+                    {
+                        span_lint(
+                            cx,
+                            OUT_OF_BOUNDS_INDEXING,
+                            range.start.map_or(expr.span, |start| start.span),
+                            "range is out of bounds",
+                        );
+                        return;
                     }
 
-                    if let (_, Some(end)) = const_range {
-                        if end > size {
-                            span_lint(
-                                cx,
-                                OUT_OF_BOUNDS_INDEXING,
-                                range.end.map_or(expr.span, |end| end.span),
-                                "range is out of bounds",
-                            );
-                            return;
-                        }
+                    if let (_, Some(end)) = const_range
+                        && end > size
+                    {
+                        span_lint(
+                            cx,
+                            OUT_OF_BOUNDS_INDEXING,
+                            range.end.map_or(expr.span, |end| end.span),
+                            "range is out of bounds",
+                        );
+                        return;
                     }
 
                     if let (Some(_), Some(_)) = const_range {
@@ -268,7 +267,7 @@ fn ty_has_applicable_get_function<'tcx>(
     index_expr: &Expr<'_>,
 ) -> bool {
     if let ty::Adt(_, _) = array_ty.kind()
-        && let Some(get_output_ty) = get_adt_inherent_method(cx, ty, sym!(get)).map(|m| {
+        && let Some(get_output_ty) = get_adt_inherent_method(cx, ty, sym::get).map(|m| {
             cx.tcx
                 .fn_sig(m.def_id)
                 .skip_binder()

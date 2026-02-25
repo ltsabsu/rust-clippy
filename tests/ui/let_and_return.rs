@@ -261,4 +261,22 @@ fn issue14164() -> Result<u32, ()> {
     //~[edition2024]^ let_and_return
 }
 
+fn issue15987() -> i32 {
+    macro_rules! sample {
+        ( $( $args:expr ),+ ) => {};
+    }
+
+    let r = 5;
+    sample!(r);
+    r
+}
+
+fn has_comment() -> Vec<usize> {
+    let v = Vec::new();
+
+    // TODO: stuff
+
+    v
+}
+
 fn main() {}

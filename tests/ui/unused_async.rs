@@ -115,7 +115,22 @@ macro_rules! async_trait_impl {
 }
 async_trait_impl!();
 
-fn main() {
-    foo();
-    bar();
+fn main() {}
+
+mod issue14704 {
+    use std::sync::Arc;
+
+    trait Action {
+        async fn cancel(self: Arc<Self>) {}
+    }
+}
+
+mod issue15305 {
+    async fn todo_task() -> Result<(), String> {
+        todo!("Implement task");
+    }
+
+    async fn unimplemented_task() -> Result<(), String> {
+        unimplemented!("Implement task");
+    }
 }

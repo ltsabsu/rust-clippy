@@ -1,14 +1,16 @@
 use std::ops::ControlFlow;
 
 use clippy_utils::diagnostics::span_lint_and_then;
-use clippy_utils::path_to_local_id;
+use clippy_utils::res::MaybeResPath;
 use clippy_utils::source::snippet;
 use clippy_utils::visitors::{Descend, Visitable, for_each_expr};
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::def::Res;
 use rustc_hir::def_id::LocalDefId;
 use rustc_hir::hir_id::ItemLocalId;
-use rustc_hir::{Block, Body, BodyOwnerKind, Expr, ExprKind, HirId, LetExpr, Node, Pat, PatKind, QPath, UnOp};
+use rustc_hir::{
+    Block, Body, BodyOwnerKind, Expr, ExprKind, HirId, LetExpr, LocalSource, Node, Pat, PatKind, QPath, UnOp,
+};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::impl_lint_pass;
 use rustc_span::{Span, Symbol};
@@ -125,6 +127,17 @@ impl<'tcx> LateLintPass<'tcx> for Shadow {
             return;
         }
 
+        // Desugaring of a destructuring assignment may reuse the same identifier internally.
+        // Peel `Pat` and `PatField` nodes and check if we reach a desugared `Let` assignment.
+        if let Some((_, Node::LetStmt(let_stmt))) = cx
+            .tcx
+            .hir_parent_iter(pat.hir_id)
+            .find(|(_, node)| !matches!(node, Node::Pat(_) | Node::PatField(_)))
+            && let LocalSource::AssignDesugar = let_stmt.source
+        {
+            return;
+        }
+
         let HirId { owner, local_id } = id;
         // get (or insert) the list of items for this owner and symbol
         let (ref mut data, scope_owner) = *self.bindings.last_mut().unwrap();
@@ -167,10 +180,10 @@ impl<'tcx> LateLintPass<'tcx> for Shadow {
 
 fn is_shadow(cx: &LateContext<'_>, owner: LocalDefId, first: ItemLocalId, second: ItemLocalId) -> bool {
     let scope_tree = cx.tcx.region_scope_tree(owner.to_def_id());
-    if let Some(first_scope) = scope_tree.var_scope(first) {
-        if let Some(second_scope) = scope_tree.var_scope(second) {
-            return scope_tree.is_subscope_of(second_scope, first_scope);
-        }
+    if let Some(first_scope) = scope_tree.var_scope(first)
+        && let Some(second_scope) = scope_tree.var_scope(second)
+    {
+        return scope_tree.is_subscope_of(second_scope, first_scope);
     }
 
     false
@@ -189,7 +202,7 @@ pub fn is_local_used_except<'tcx>(
     for_each_expr(cx, visitable, |e| {
         if except.is_some_and(|it| it == e.hir_id) {
             ControlFlow::Continue(Descend::No)
-        } else if path_to_local_id(e, id) {
+        } else if e.res_local_id() == Some(id) {
             ControlFlow::Break(())
         } else {
             ControlFlow::Continue(Descend::Yes)
@@ -218,7 +231,7 @@ fn lint_shadow(cx: &LateContext<'_>, pat: &Pat<'_>, shadowed: HirId, span: Span)
         },
     };
     span_lint_and_then(cx, lint, span, msg, |diag| {
-        diag.span_note(cx.tcx.hir().span(shadowed), "previous binding is here");
+        diag.span_note(cx.tcx.hir_span(shadowed), "previous binding is here");
     });
 }
 

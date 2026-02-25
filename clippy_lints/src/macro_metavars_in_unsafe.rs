@@ -2,12 +2,14 @@ use clippy_config::Conf;
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use clippy_utils::is_lint_allowed;
 use itertools::Itertools;
+use rustc_hir::attrs::AttributeKind;
 use rustc_hir::def_id::LocalDefId;
 use rustc_hir::intravisit::{Visitor, walk_block, walk_expr, walk_stmt};
-use rustc_hir::{BlockCheckMode, Expr, ExprKind, HirId, Stmt, UnsafeSource};
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_hir::{BlockCheckMode, Expr, ExprKind, HirId, Stmt, UnsafeSource, find_attr};
+use rustc_lint::{LateContext, LateLintPass, Level, LintContext};
+use rustc_middle::lint::LevelAndSource;
 use rustc_session::impl_lint_pass;
-use rustc_span::{Span, SyntaxContext, sym};
+use rustc_span::{Span, SyntaxContext};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
@@ -145,7 +147,8 @@ struct BodyVisitor<'a, 'tcx> {
 }
 
 fn is_public_macro(cx: &LateContext<'_>, def_id: LocalDefId) -> bool {
-    (cx.effective_visibilities.is_exported(def_id) || cx.tcx.has_attr(def_id, sym::macro_export))
+    (cx.effective_visibilities.is_exported(def_id)
+        || find_attr!(cx.tcx.get_all_attrs(def_id), AttributeKind::MacroExport { .. }))
         && !cx.tcx.is_doc_hidden(def_id)
 }
 
@@ -242,18 +245,32 @@ impl<'tcx> LateLintPass<'tcx> for ExprMetavarsInUnsafe {
         // We want to lint unsafe blocks #0 and #1
         let bad_unsafe_blocks = self
             .metavar_expns
-            .iter()
-            .filter_map(|(_, state)| match state {
+            .values()
+            .filter_map(|state| match state {
                 MetavarState::ReferencedInUnsafe { unsafe_blocks } => Some(unsafe_blocks.as_slice()),
                 MetavarState::ReferencedInSafe => None,
             })
             .flatten()
             .copied()
+            .inspect(|&unsafe_block| {
+                if let LevelAndSource {
+                    level: Level::Expect,
+                    lint_id: Some(id),
+                    ..
+                } = cx.tcx.lint_level_at_node(MACRO_METAVARS_IN_UNSAFE, unsafe_block)
+                {
+                    // Since we're going to deduplicate expanded unsafe blocks by its enclosing macro definition soon,
+                    // which would lead to unfulfilled `#[expect()]`s in all other unsafe blocks that are filtered out
+                    // except for the one we emit the warning at, we must manually fulfill the lint
+                    // for all unsafe blocks here.
+                    cx.fulfill_expectation(id);
+                }
+            })
             .map(|id| {
                 // Remove the syntax context to hide "in this macro invocation" in the diagnostic.
                 // The invocation doesn't matter. Also we want to dedupe by the unsafe block and not by anything
                 // related to the callsite.
-                let span = cx.tcx.hir().span(id);
+                let span = cx.tcx.hir_span(id);
 
                 (id, Span::new(span.lo(), span.hi(), SyntaxContext::root(), None))
             })

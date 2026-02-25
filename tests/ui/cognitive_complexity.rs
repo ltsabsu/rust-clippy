@@ -1,6 +1,11 @@
-#![allow(clippy::all)]
 #![warn(clippy::cognitive_complexity)]
-#![allow(unused, unused_crate_dependencies)]
+#![allow(
+    clippy::eq_op,
+    clippy::needless_borrows_for_generic_args,
+    clippy::needless_return,
+    clippy::nonminimal_bool,
+    clippy::uninlined_format_args
+)]
 
 #[rustfmt::skip]
 fn main() {
@@ -445,6 +450,50 @@ mod issue9300 {
 
             let a = 0;
             if a == 0 {}
+        }
+    }
+}
+
+#[clippy::cognitive_complexity = "1"]
+mod issue14422 {
+    fn foo() {
+        //~^ cognitive_complexity
+        for _ in 0..10 {
+            println!("hello there");
+        }
+    }
+
+    fn bar() {
+        //~^ cognitive_complexity
+        for _ in 0..10 {
+            println!("hello there");
+        }
+        return;
+        return;
+    }
+}
+
+#[clippy::cognitive_complexity = "1"]
+mod attribute_stacking {
+    fn bad() {
+        //~^ cognitive_complexity
+        if true {
+            println!("a");
+        }
+    }
+
+    #[clippy::cognitive_complexity = "2"]
+    fn ok() {
+        if true {
+            println!("a");
+        }
+    }
+
+    // should revert to cognitive_complexity = "1"
+    fn bad_again() {
+        //~^ cognitive_complexity
+        if true {
+            println!("a");
         }
     }
 }

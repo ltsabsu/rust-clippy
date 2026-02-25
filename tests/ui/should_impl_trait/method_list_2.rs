@@ -1,4 +1,6 @@
-#![warn(clippy::all, clippy::pedantic)]
+//@revisions: edition2015 edition2021
+//@[edition2015] edition:2015
+//@[edition2021] edition:2021
 #![allow(
     clippy::missing_errors_doc,
     clippy::needless_pass_by_value,
@@ -10,7 +12,7 @@
     clippy::missing_panics_doc,
     clippy::return_self_not_must_use
 )]
-//@no-rustfix
+
 use std::ops::Mul;
 use std::rc::{self, Rc};
 use std::sync::{self, Arc};
@@ -30,7 +32,7 @@ impl T {
     }
 
     pub fn from_iter<T>(iter: T) -> Self {
-        //~^ should_implement_trait
+        //~[edition2021]^ should_implement_trait
 
         unimplemented!()
     }

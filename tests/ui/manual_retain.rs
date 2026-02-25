@@ -1,23 +1,8 @@
 #![warn(clippy::manual_retain)]
-#![allow(unused, clippy::redundant_clone)]
+#![allow(unused, clippy::needless_borrowed_reference, clippy::redundant_clone)]
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 
-fn main() {
-    binary_heap_retain();
-    btree_set_retain();
-    btree_map_retain();
-    hash_set_retain();
-    hash_map_retain();
-    string_retain();
-    vec_deque_retain();
-    vec_retain();
-    _msrv_153();
-    _msrv_126();
-    _msrv_118();
-
-    issue_10393();
-    issue_12081();
-}
+fn main() {}
 
 fn binary_heap_retain() {
     let mut binary_heap = BinaryHeap::from([1, 2, 3]);
@@ -31,7 +16,7 @@ fn binary_heap_retain() {
 
     // Do lint, because we use pattern matching
     let mut tuples = BinaryHeap::from([(0, 1), (1, 2), (2, 3)]);
-    tuples = tuples.iter().filter(|(ref x, ref y)| *x == 0).copied().collect();
+    tuples = tuples.iter().filter(|&&(ref x, ref y)| *x == 0).copied().collect();
     //~^ manual_retain
     tuples = tuples.iter().filter(|(x, y)| *x == 0).copied().collect();
     //~^ manual_retain
@@ -103,7 +88,7 @@ fn btree_set_retain() {
 
     // Do lint, because we use pattern matching
     let mut tuples = BTreeSet::from([(0, 1), (1, 2), (2, 3)]);
-    tuples = tuples.iter().filter(|(ref x, ref y)| *x == 0).copied().collect();
+    tuples = tuples.iter().filter(|&&(ref x, ref y)| *x == 0).copied().collect();
     //~^ manual_retain
     tuples = tuples.iter().filter(|(x, y)| *x == 0).copied().collect();
     //~^ manual_retain
@@ -174,7 +159,7 @@ fn hash_set_retain() {
 
     // Do lint, because we use pattern matching
     let mut tuples = HashSet::from([(0, 1), (1, 2), (2, 3)]);
-    tuples = tuples.iter().filter(|(ref x, ref y)| *x == 0).copied().collect();
+    tuples = tuples.iter().filter(|&&(ref x, ref y)| *x == 0).copied().collect();
     //~^ manual_retain
     tuples = tuples.iter().filter(|(x, y)| *x == 0).copied().collect();
     //~^ manual_retain
@@ -228,7 +213,7 @@ fn vec_retain() {
 
     // Do lint, because we use pattern matching
     let mut tuples = vec![(0, 1), (1, 2), (2, 3)];
-    tuples = tuples.iter().filter(|(ref x, ref y)| *x == 0).copied().collect();
+    tuples = tuples.iter().filter(|&&(ref x, ref y)| *x == 0).copied().collect();
     //~^ manual_retain
     tuples = tuples.iter().filter(|(x, y)| *x == 0).copied().collect();
     //~^ manual_retain

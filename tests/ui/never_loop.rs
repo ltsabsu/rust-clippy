@@ -1,12 +1,9 @@
 #![feature(try_blocks)]
-#![allow(
-    clippy::eq_op,
-    clippy::single_match,
-    unused_assignments,
-    unused_variables,
-    clippy::while_immutable_condition
-)]
+#![expect(clippy::eq_op, clippy::single_match, clippy::while_immutable_condition)]
 //@no-rustfix
+
+use std::arch::asm;
+
 fn test1() {
     let mut x = 0;
     loop {
@@ -450,19 +447,97 @@ fn loop_label() {
     }
 }
 
-fn main() {
-    test1();
-    test2();
-    test3();
-    test4();
-    test5();
-    test6();
-    test7();
-    test8();
-    test9();
-    test10();
-    test11(|| 0);
-    test12(true, false);
-    test13();
-    test14();
+fn main() {}
+
+fn issue15059() {
+    'a: for _ in 0..1 {
+        //~^ never_loop
+        break 'a;
+    }
+
+    let mut b = 1;
+    'a: for i in 0..1 {
+        //~^ never_loop
+        match i {
+            0 => {
+                b *= 2;
+                break 'a;
+            },
+            x => {
+                b += x;
+                break 'a;
+            },
+        }
+    }
+
+    #[allow(clippy::unused_unit)]
+    for v in 0..10 {
+        //~^ never_loop
+        break;
+        println!("{v}");
+        // This is comment and should be kept
+        println!("This is a comment");
+        ()
+    }
+}
+
+fn issue15350() {
+    'bar: for _ in 0..100 {
+        //~^ never_loop
+        loop {
+            //~^ never_loop
+            println!("This will still run");
+            break 'bar;
+        }
+    }
+
+    'foo: for _ in 0..100 {
+        //~^ never_loop
+        loop {
+            //~^ never_loop
+            println!("This will still run");
+            loop {
+                //~^ never_loop
+                println!("This will still run");
+                break 'foo;
+            }
+        }
+    }
+}
+
+fn issue15673() {
+    loop {
+        unsafe {
+            // No lint since we don't analyze the inside of the asm
+            asm! {
+                "/* {} */",
+                label {
+                    break;
+                }
+            }
+        }
+    }
+
+    //~v never_loop
+    loop {
+        unsafe {
+            asm! {
+                "/* {} */",
+                label {
+                    break;
+                }
+            }
+        }
+        return;
+    }
+}
+
+#[expect(clippy::diverging_sub_expression, clippy::short_circuit_statement)]
+fn issue16462() {
+    let mut n = 10;
+    loop {
+        println!("{n}");
+        n -= 1;
+        n >= 0 || break;
+    }
 }

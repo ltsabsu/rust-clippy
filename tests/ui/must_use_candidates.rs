@@ -88,15 +88,28 @@ static mut COUNTER: usize = 0;
 ///
 /// Don't ever call this from multiple threads
 pub unsafe fn mutates_static() -> usize {
-    COUNTER += 1;
-    COUNTER
+    unsafe {
+        COUNTER += 1;
+        COUNTER
+    }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn unmangled(i: bool) -> bool {
     !i
 }
 
-fn main() {
+pub fn main() -> std::process::ExitCode {
     assert_eq!(1, pure(1));
+    std::process::ExitCode::SUCCESS
+}
+
+//~v must_use_candidate
+pub fn result_uninhabited() -> Result<i32, std::convert::Infallible> {
+    todo!()
+}
+
+//~v must_use_candidate
+pub fn controlflow_uninhabited() -> std::ops::ControlFlow<std::convert::Infallible, i32> {
+    todo!()
 }

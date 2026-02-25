@@ -74,3 +74,79 @@ impl ToOwned for Baz {
         Baz
     }
 }
+
+fn issue_8103() {
+    let foo1 = String::from("foo");
+    let _ = foo1 == "foo".to_owned();
+    //~^ cmp_owned
+    let foo2 = "foo";
+    let _ = foo1 == foo2.to_owned();
+    //~^ cmp_owned
+}
+
+macro_rules! issue16322_macro_generator {
+    ($locale:ident) => {
+        mod $locale {
+            macro_rules! _make {
+                ($token:tt) => {
+                    stringify!($token)
+                };
+            }
+
+            pub(crate) use _make;
+        }
+
+        macro_rules! t {
+            ($token:tt) => {
+                crate::$locale::_make!($token)
+            };
+        }
+    };
+}
+
+issue16322_macro_generator!(de);
+
+fn issue16322(item: String) {
+    if item == t!(frohes_neu_Jahr).to_string() {
+        //~^ cmp_owned
+        println!("Ja!");
+    }
+}
+
+fn issue16458() {
+    macro_rules! m {
+        () => {
+            ""
+        };
+    }
+
+    macro_rules! partly_comes_from_macro {
+        ($i:ident: $ty:ty, $def:expr) => {
+            let _ = {
+                let res = <$ty>::default() == $def;
+                let _i: $ty = $def;
+                res
+            };
+        };
+    }
+
+    partly_comes_from_macro! {
+        required_version: String, m!().to_string()
+    }
+
+    macro_rules! all_comes_from_macro {
+        ($($i:ident: $ty:ty, $def:expr);+ $(;)*) => {
+            $(
+                let _ = {
+                    let res = <$ty>::default() == "$def".to_string();
+                    //~^ cmp_owned
+                    let _i: $ty = $def;
+                    res
+                };
+            )+
+        };
+    }
+    all_comes_from_macro! {
+        required_version: String, m!().to_string();
+    }
+}

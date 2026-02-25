@@ -1,4 +1,4 @@
-#![allow(clippy::needless_if)]
+#![allow(clippy::needless_ifs)]
 
 fn main() {
     let x = 1;
@@ -32,6 +32,22 @@ fn main() {
         // do something
     }
     if x >= y && x <= y {
+        //~^ double_comparisons
+        // do something
+    }
+    if x != y && x <= y {
+        //~^ double_comparisons
+        // do something
+    }
+    if x <= y && x != y {
+        //~^ double_comparisons
+        // do something
+    }
+    if x != y && x >= y {
+        //~^ double_comparisons
+        // do something
+    }
+    if x >= y && x != y {
         //~^ double_comparisons
         // do something
     }

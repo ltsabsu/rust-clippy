@@ -3,7 +3,7 @@
 #![warn(clippy::shadow_same, clippy::shadow_reuse, clippy::shadow_unrelated)]
 #![allow(
     clippy::let_unit_value,
-    clippy::needless_if,
+    clippy::needless_ifs,
     clippy::redundant_guards,
     clippy::redundant_locals
 )]
@@ -165,6 +165,21 @@ struct Issue13795 {
 fn issue13795(value: Issue13795) {
     let Issue13795 { value, .. } = value;
     //~^ shadow_same
+}
+
+fn issue14377() {
+    let a;
+    let b;
+    (a, b) = (0, 1);
+
+    struct S {
+        c: i32,
+        d: i32,
+    }
+
+    let c;
+    let d;
+    S { c, d } = S { c: 1, d: 2 };
 }
 
 fn main() {}

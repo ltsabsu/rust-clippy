@@ -1,7 +1,7 @@
 use super::needless_pass_by_value::requires_exact_signature;
 use clippy_config::Conf;
 use clippy_utils::diagnostics::span_lint_hir_and_then;
-use clippy_utils::source::snippet;
+use clippy_utils::source::HasSession as _;
 use clippy_utils::visitors::for_each_expr;
 use clippy_utils::{inherits_cfg, is_from_proc_macro, is_self};
 use core::ops::ControlFlow;
@@ -18,9 +18,9 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::mir::FakeReadCause;
 use rustc_middle::ty::{self, Ty, TyCtxt, UpvarId, UpvarPath};
 use rustc_session::impl_lint_pass;
-use rustc_span::Span;
 use rustc_span::def_id::LocalDefId;
 use rustc_span::symbol::kw;
+use rustc_span::{BytePos, Span};
 
 declare_clippy_lint! {
     /// ### What it does
@@ -86,11 +86,11 @@ fn should_skip<'tcx>(
         return false;
     }
 
-    if let PatKind::Binding(.., name, _) = arg.pat.kind {
+    if let PatKind::Binding(.., name, _) = arg.pat.kind
         // If it's a potentially unused variable, we don't check it.
-        if name.name == kw::Underscore || name.as_str().starts_with('_') {
-            return true;
-        }
+        && (name.name == kw::Underscore || name.as_str().starts_with('_'))
+    {
+        return true;
     }
 
     // All spans generated from a proc-macro invocation are the same...
@@ -164,13 +164,13 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessPassByRefMut<'tcx> {
         };
 
         // Exclude non-inherent impls
-        if let Node::Item(item) = cx.tcx.parent_hir_node(hir_id) {
-            if matches!(
+        if let Node::Item(item) = cx.tcx.parent_hir_node(hir_id)
+            && matches!(
                 item.kind,
                 ItemKind::Impl(Impl { of_trait: Some(_), .. }) | ItemKind::Trait(..)
-            ) {
-                return;
-            }
+            )
+        {
+            return;
         }
 
         let fn_sig = cx.tcx.fn_sig(fn_def_id).instantiate_identity();
@@ -269,18 +269,27 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessPassByRefMut<'tcx> {
                 // If the argument is never used mutably, we emit the warning.
                 let sp = input.span;
                 if let rustc_hir::TyKind::Ref(_, inner_ty) = input.kind {
+                    let Some(after_mut_span) = cx.sess().source_map().span_extend_to_prev_str(
+                        inner_ty.ty.span.shrink_to_lo(),
+                        "mut",
+                        true,
+                        true,
+                    ) else {
+                        return;
+                    };
+                    let mut_span = after_mut_span.with_lo(after_mut_span.lo() - BytePos(3));
                     let is_cfged = is_cfged.get_or_insert_with(|| inherits_cfg(cx.tcx, *fn_def_id));
                     span_lint_hir_and_then(
                         cx,
                         NEEDLESS_PASS_BY_REF_MUT,
                         cx.tcx.local_def_id_to_hir_id(*fn_def_id),
                         sp,
-                        "this argument is a mutable reference, but not used mutably",
+                        "this parameter is a mutable reference but is not used mutably",
                         |diag| {
                             diag.span_suggestion(
-                                sp,
-                                "consider changing to".to_string(),
-                                format!("&{}", snippet(cx, cx.tcx.hir().span(inner_ty.ty.hir_id), "_"),),
+                                mut_span,
+                                "consider removing this `mut`",
+                                "",
                                 Applicability::Unspecified,
                             );
                             if cx.effective_visibilities.is_exported(*fn_def_id) {
@@ -353,10 +362,10 @@ impl MutablyUsedVariablesCtxt<'_> {
         for (parent, node) in self.tcx.hir_parent_iter(item) {
             if let Some(fn_sig) = self.tcx.hir_fn_sig_by_hir_id(parent) {
                 return fn_sig.header.is_unsafe();
-            } else if let Node::Block(block) = node {
-                if matches!(block.rules, BlockCheckMode::UnsafeBlock(_)) {
-                    return true;
-                }
+            } else if let Node::Block(block) = node
+                && matches!(block.rules, BlockCheckMode::UnsafeBlock(_))
+            {
+                return true;
             }
         }
         false
@@ -364,7 +373,6 @@ impl MutablyUsedVariablesCtxt<'_> {
 }
 
 impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
-    #[allow(clippy::if_same_then_else)]
     fn consume(&mut self, cmt: &euv::PlaceWithHirId<'tcx>, id: HirId) {
         if let euv::Place {
             base:
@@ -398,7 +406,6 @@ impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
 
     fn use_cloned(&mut self, _: &euv::PlaceWithHirId<'tcx>, _: HirId) {}
 
-    #[allow(clippy::if_same_then_else)]
     fn borrow(&mut self, cmt: &euv::PlaceWithHirId<'tcx>, id: HirId, borrow: ty::BorrowKind) {
         self.prev_bind = None;
         if let euv::Place {
@@ -426,10 +433,10 @@ impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
                 // upon!
                 self.add_mutably_used_var(*vid);
             }
-        } else if borrow == ty::BorrowKind::Immutable {
+        } else if borrow == ty::BorrowKind::Immutable
             // If there is an `async block`, it'll contain a call to a closure which we need to
             // go into to ensure all "mutate" checks are found.
-            if let Node::Expr(Expr {
+            && let Node::Expr(Expr {
                 kind:
                     ExprKind::Call(
                         _,
@@ -442,9 +449,8 @@ impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
                     ),
                 ..
             }) = self.tcx.hir_node(cmt.hir_id)
-            {
-                self.async_closures.insert(*def_id);
-            }
+        {
+            self.async_closures.insert(*def_id);
         }
     }
 
@@ -460,10 +466,9 @@ impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
                 }),
             ..
         } = &cmt.place
+            && !projections.is_empty()
         {
-            if !projections.is_empty() {
-                self.add_mutably_used_var(*vid);
-            }
+            self.add_mutably_used_var(*vid);
         }
     }
 
@@ -477,10 +482,9 @@ impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
                 }),
             ..
         } = &cmt.place
+            && self.is_in_unsafe_block(id)
         {
-            if self.is_in_unsafe_block(id) {
-                self.add_mutably_used_var(*vid);
-            }
+            self.add_mutably_used_var(*vid);
         }
         self.prev_bind = None;
     }
@@ -499,15 +503,14 @@ impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
                 }),
             ..
         } = &cmt.place
+            && let FakeReadCause::ForLet(Some(inner)) = cause
         {
-            if let FakeReadCause::ForLet(Some(inner)) = cause {
-                // Seems like we are inside an async function. We need to store the closure `DefId`
-                // to go through it afterwards.
-                self.async_closures.insert(inner);
-                self.add_alias(cmt.hir_id, *vid);
-                self.prev_move_to_closure.insert(*vid);
-                self.prev_bind = None;
-            }
+            // Seems like we are inside an async function. We need to store the closure `DefId`
+            // to go through it afterwards.
+            self.async_closures.insert(inner);
+            self.add_alias(cmt.hir_id, *vid);
+            self.prev_move_to_closure.insert(*vid);
+            self.prev_bind = None;
         }
     }
 
@@ -522,10 +525,9 @@ impl<'tcx> euv::Delegate<'tcx> for MutablyUsedVariablesCtxt<'tcx> {
                 }),
             ..
         } = &cmt.place
+            && self.is_in_unsafe_block(id)
         {
-            if self.is_in_unsafe_block(id) {
-                self.add_mutably_used_var(*vid);
-            }
+            self.add_mutably_used_var(*vid);
         }
     }
 }

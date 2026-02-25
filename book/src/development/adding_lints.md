@@ -126,10 +126,14 @@ fn main() {
 ```
 
 Note that we are adding comment annotations with the name of our lint to mark
-lines where we expect an error. Once we have implemented our lint we can run
-`TESTNAME=foo_functions cargo uibless` to generate the `.stderr` file. If our
-lint makes use of structured suggestions then this command will also generate
-the corresponding `.fixed` file.
+lines where we expect an error. Except for very specific situations
+(`//@check-pass`), at least one error marker must be present in a test file for
+it to be accepted.
+
+Once we have implemented our lint we can run `TESTNAME=foo_functions cargo
+uibless` to generate the `.stderr` file. If our lint makes use of structured
+suggestions then this command will also generate the corresponding `.fixed`
+file.
 
 While we are working on implementing our lint, we can keep running the UI test.
 That allows us to check if the output is turning into what we want by checking the
@@ -412,7 +416,7 @@ In our example, `is_foo_fn` looks like:
 
 fn is_foo_fn(fn_kind: FnKind<'_>) -> bool {
     match fn_kind {
-        FnKind::Fn(_, ident, ..) => {
+        FnKind::Fn(_, _, Fn { ident, .. }) => {
             // check if `fn` name is `foo`
             ident.name.as_str() == "foo"
         }
@@ -755,8 +759,7 @@ for some users. Adding a configuration is done in the following steps:
 Here are some pointers to things you are likely going to need for every lint:
 
 * [Clippy utils][utils] - Various helper functions. Maybe the function you need
-  is already in here ([`is_type_diagnostic_item`], [`implements_trait`],
-  [`snippet`], etc)
+  is already in here ([`implements_trait`], [`snippet`], etc)
 * [Clippy diagnostics][diagnostics]
 * [Let chains][let-chains]
 * [`from_expansion`][from_expansion] and
@@ -786,7 +789,6 @@ get away with copying things from existing similar lints. If you are stuck,
 don't hesitate to ask on [Zulip] or in the issue/PR.
 
 [utils]: https://doc.rust-lang.org/nightly/nightly-rustc/clippy_utils/index.html
-[`is_type_diagnostic_item`]: https://doc.rust-lang.org/nightly/nightly-rustc/clippy_utils/ty/fn.is_type_diagnostic_item.html
 [`implements_trait`]: https://doc.rust-lang.org/nightly/nightly-rustc/clippy_utils/ty/fn.implements_trait.html
 [`snippet`]: https://doc.rust-lang.org/nightly/nightly-rustc/clippy_utils/source/fn.snippet.html
 [let-chains]: https://github.com/rust-lang/rust/pull/94927

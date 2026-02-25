@@ -101,11 +101,7 @@ fn dont_lint_not_used() {
     std::mem::replace(&mut s, String::default());
 }
 
-fn main() {
-    replace_option_with_none();
-    replace_with_default();
-    dont_lint_primitive();
-}
+fn main() {}
 
 #[clippy::msrv = "1.39"]
 fn msrv_1_39() {
@@ -178,4 +174,10 @@ fn mem_replace_option_with_some() {
 fn mem_replace_option_with_some_bad_msrv() {
     let mut an_option = Some(0);
     let replaced = mem::replace(&mut an_option, Some(1));
+}
+
+fn issue15785() {
+    let mut text = String::from("foo");
+    let replaced = std::mem::replace(dbg!(&mut text), String::default());
+    //~^ mem_replace_with_default
 }

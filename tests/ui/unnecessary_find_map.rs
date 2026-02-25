@@ -1,6 +1,3 @@
-//@no-rustfix
-#![allow(dead_code)]
-
 fn main() {
     let _ = (0..4).find_map(|x| if x > 1 { Some(x) } else { None });
     //~^ unnecessary_find_map

@@ -8,6 +8,9 @@ extern crate regex;
 use futures::stream::{empty, select_all};
 use regex::Regex;
 
+use std::convert::identity;
+use std::hint::black_box as renamed;
+
 fn local_fn() {}
 
 struct Struct;
@@ -71,4 +74,25 @@ fn main() {
     //~^ disallowed_methods
     s.implemented_method();
     //~^ disallowed_methods
+
+    identity(());
+    //~^ disallowed_methods
+    renamed(1);
+    //~^ disallowed_methods
+}
+
+mod issue16185 {
+    use std::pin::Pin;
+    use std::task::Context;
+
+    async fn test(f: impl Future<Output = ()>) {
+        // Should not lint even though desugaring uses
+        // disallowed method `std::future::Future::poll()`.
+        f.await
+    }
+
+    fn explicit<F: Future<Output = ()>>(f: Pin<&mut F>, cx: &mut Context<'_>) {
+        f.poll(cx);
+        //~^ disallowed_methods
+    }
 }

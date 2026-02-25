@@ -1,7 +1,7 @@
 #![feature(try_blocks)]
-#![allow(unreachable_code)]
-#![allow(dead_code)]
-#![allow(clippy::unnecessary_wraps)]
+#![allow(clippy::unnecessary_wraps, clippy::no_effect)]
+
+use std::sync::MutexGuard;
 
 fn some_func(a: Option<u32>) -> Option<u32> {
     if a.is_none() {
@@ -369,6 +369,11 @@ fn pattern() -> Result<(), PatternedError> {
     res
 }
 
+fn expect_expr(a: Option<usize>) -> Option<usize> {
+    #[expect(clippy::needless_question_mark)]
+    Some(a?)
+}
+
 fn main() {}
 
 // `?` is not the same as `return None;` if inside of a try block
@@ -523,4 +528,124 @@ fn msrv_1_13(arg: Option<i32>) -> Option<i32> {
     };
     println!("{}", val);
     Some(val)
+}
+
+fn issue_14615(a: MutexGuard<Option<u32>>) -> Option<String> {
+    let Some(a) = *a else {
+        return None;
+    };
+    //~^^^ question_mark
+    Some(format!("{a}"))
+}
+
+fn const_in_pattern(x: Option<(i32, i32)>) -> Option<()> {
+    const N: i32 = 0;
+
+    let Some((x, N)) = x else {
+        return None;
+    };
+
+    None
+}
+
+fn issue_13642(x: Option<i32>) -> Option<()> {
+    let Some(x) = x else {
+        #[cfg(false)]
+        panic!();
+
+        #[cfg(true)]
+        return None;
+    };
+
+    None
+}
+
+fn issue_15679() -> Result<i32, String> {
+    let some_result: Result<i32, &'static str> = todo!();
+
+    match some_result {
+        //~^ question_mark
+        Ok(val) => val,
+        Err(err) => return Err(err.into()),
+    };
+
+    match some_result {
+        //~^ question_mark
+        Ok(val) => val,
+        Err(err) => return Err(Into::into(err)),
+    };
+
+    match some_result {
+        //~^ question_mark
+        Ok(val) => val,
+        Err(err) => return Err(<&str as Into<String>>::into(err)),
+    };
+
+    Ok(0)
+}
+
+mod issue14894 {
+    fn use_after_question_mark(do_something_else: impl Fn() -> Result<String, ()>) -> Result<(), ()> {
+        let result = do_something_else();
+        if let Err(reason) = result {
+            return Err(reason);
+        }
+        drop(result);
+
+        let result = do_something_else();
+        let x = match result {
+            //~^ question_mark
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+        drop(x);
+
+        Ok(())
+    }
+
+    #[expect(dropping_copy_types)]
+    fn use_after_question_mark_but_is_copy(do_something_else: impl Fn() -> Result<i32, ()>) -> Result<(), ()> {
+        let result = do_something_else();
+        if let Err(reason) = result {
+            //~^ question_mark
+            return Err(reason);
+        }
+        drop(result);
+
+        Ok(())
+    }
+}
+
+fn wrongly_unmangled_macros() -> Option<i32> {
+    macro_rules! test_expr {
+        ($val:expr) => {
+            Some($val)
+        };
+    }
+
+    let Some(x) = test_expr!(42) else {
+        return None;
+    };
+    //~^^^ question_mark
+    Some(x);
+
+    if test_expr!(42).is_none() {
+        //~^ question_mark
+        return None;
+    }
+    test_expr!(42)
+}
+
+fn issue16429(b: i32) -> Option<i32> {
+    let a = Some(5);
+    let _ = if b == 1 {
+        b
+    } else if let Some(x) = a {
+        //~^ question_mark
+        x
+    } else {
+        return None;
+    };
+
+    Some(0)
 }

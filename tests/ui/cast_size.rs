@@ -1,7 +1,7 @@
-//@revisions: 32bit 64bit
-//@[32bit]ignore-bitwidth: 64
-//@[64bit]ignore-bitwidth: 32
-//@no-rustfix
+//@revisions: r32bit r64bit
+//@[r32bit]ignore-bitwidth: 64
+//@[r64bit]ignore-bitwidth: 32
+//@no-rustfix: only some diagnostics have suggestions
 
 #![warn(
     clippy::cast_precision_loss,
@@ -62,6 +62,12 @@ fn main() {
     //~^ cast_precision_loss
     9_999_999_999_999_999usize as f64;
     //~^ cast_precision_loss
-    //~[32bit]^^ ERROR: literal out of range for `usize`
+    //~[r32bit]^^ ERROR: literal out of range for `usize`
     // 999_999_999_999_999_999_999_999_999_999u128 as f128;
+}
+
+fn issue15163() {
+    const M: usize = 100;
+    const N: u16 = M as u16;
+    //~^ cast_possible_truncation
 }

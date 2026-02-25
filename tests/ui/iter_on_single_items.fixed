@@ -61,8 +61,28 @@ mod custom_option {
     }
 }
 
-fn main() {
-    array();
-    custom_option::custom_option();
-    in_macros!();
+fn main() {}
+
+mod issue14981 {
+    use std::option::IntoIter;
+    fn takes_into_iter(_: impl IntoIterator<Item = i32>) {}
+
+    fn let_stmt() {
+        macro_rules! x {
+            ($e:expr) => {
+                let _: IntoIter<i32> = $e;
+            };
+        }
+        x!(Some(5).into_iter());
+    }
+
+    fn fn_ptr() {
+        fn some_func(_: IntoIter<i32>) -> IntoIter<i32> {
+            todo!()
+        }
+        some_func(Some(5).into_iter());
+
+        const C: fn(IntoIter<i32>) -> IntoIter<i32> = <IntoIter<i32> as IntoIterator>::into_iter;
+        C(Some(5).into_iter());
+    }
 }

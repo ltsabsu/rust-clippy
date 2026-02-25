@@ -1,4 +1,3 @@
-#![warn(clippy::all)]
 #![warn(clippy::if_not_else)]
 
 fn foo() -> bool {
@@ -75,5 +74,22 @@ fn with_annotations() {
         //~^ if_not_else
         /* foo is false */
         println!("foo is false");
+    }
+}
+
+fn issue15924() {
+    let x = 0;
+    if matches!(x, 0..10) {
+        println!(":(");
+    } else {
+        //~^ if_not_else
+        println!(":)");
+    }
+
+    if dbg!(x) == 1 {
+        println!(":(");
+    } else {
+        //~^ if_not_else
+        println!(":)");
     }
 }

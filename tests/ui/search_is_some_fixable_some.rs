@@ -27,14 +27,38 @@ fn main() {
         .find(|x| [1, 2, 3].contains(x) || *x == 0 || [4, 5, 6].contains(x) || *x == -1)
         //~^ search_is_some
         .is_some();
+    // Check `find().is_some()`, multi-line case.
+    let _ = v
+        .iter()
+        .find(|&x| {
+            //~^ search_is_some
+            *x < 0
+        })
+        .is_some();
 
     // Check `position().is_some()`, single-line case.
     let _ = v.iter().position(|&x| x < 0).is_some();
     //~^ search_is_some
+    // Check `position().is_some()`, multi-line case.
+    let _ = v
+        .iter()
+        .position(|&x| {
+            //~^ search_is_some
+            x < 0
+        })
+        .is_some();
 
     // Check `rposition().is_some()`, single-line case.
     let _ = v.iter().rposition(|&x| x < 0).is_some();
     //~^ search_is_some
+    // Check `rposition().is_some()`, multi-line case.
+    let _ = v
+        .iter()
+        .rposition(|&x| {
+            //~^ search_is_some
+            x < 0
+        })
+        .is_some();
 
     let s1 = String::from("hello world");
     let s2 = String::from("world");
@@ -220,10 +244,11 @@ mod issue7392 {
     }
 
     fn ref_bindings() {
-        let _ = [&(&1, 2), &(&3, 4), &(&5, 4)].iter().find(|(&x, y)| x == *y).is_some();
-        //~^ search_is_some
-        let _ = [&(&1, 2), &(&3, 4), &(&5, 4)].iter().find(|&(&x, y)| x == *y).is_some();
-        //~^ search_is_some
+        let _ = [&(&1, 2), &(&3, 4), &(&5, 4)]
+            .iter()
+            .find(|&&&(&x, ref y)| x == *y)
+            //~^ search_is_some
+            .is_some();
     }
 
     fn test_string_1(s: &str) -> bool {
@@ -296,3 +321,24 @@ mod issue9120 {
         //~^ search_is_some
     }
 }
+
+// skip this test due to rust-lang/rust-clippy#16086
+/*
+#[allow(clippy::match_like_matches_macro)]
+fn issue15102() {
+    let values = [None, Some(3)];
+    let has_even = values.iter().find(|v| matches!(v, Some(x) if x % 2 == 0)).is_some();
+    ~^ search_is_some
+    println!("{has_even}");
+
+    let has_even = values
+        .iter()
+        .find(|v| match v {
+            ~^ search_is_some
+            Some(x) if x % 2 == 0 => true,
+            _ => false,
+        })
+        .is_some();
+    println!("{has_even}");
+}
+*/

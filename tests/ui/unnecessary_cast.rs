@@ -133,12 +133,13 @@ fn main() {
     aaa() as u32;
     //~^ unnecessary_cast
     let x = aaa();
-    aaa() as u32;
+    x as u32;
     //~^ unnecessary_cast
-    // Will not lint currently.
     bbb() as u32;
+    //~^ unnecessary_cast
     let x = bbb();
-    bbb() as u32;
+    x as u32;
+    //~^ unnecessary_cast
 
     let i8_ptr: *const i8 = &1;
     let u8_ptr: *const u8 = &1;
@@ -267,6 +268,20 @@ mod fixable {
     // `*x.pow(2)` which tries to dereference the return value rather than `x`.
     fn issue_11968(x: &usize) -> usize {
         (*x as usize).pow(2)
+        //~^ unnecessary_cast
+    }
+
+    #[allow(clippy::cast_lossless)]
+    fn issue_14640() {
+        let x = 5usize;
+        let vec: Vec<u64> = vec![1, 2, 3, 4, 5];
+        assert_eq!(vec.len(), x as usize);
+        //~^ unnecessary_cast
+
+        let _ = (5i32 as i64 as i64).abs();
+        //~^ unnecessary_cast
+
+        let _ = 5i32 as i64 as i64;
         //~^ unnecessary_cast
     }
 }

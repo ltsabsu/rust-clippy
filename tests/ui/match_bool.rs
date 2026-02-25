@@ -113,4 +113,32 @@ fn issue14099() {
     }
 }
 
+fn issue15351() {
+    let mut d = false;
+    match d {
+        false => println!("foo"),
+        ref mut d => *d = false,
+    }
+
+    match d {
+        false => println!("foo"),
+        e => println!("{e}"),
+    }
+}
+
+fn wrongly_unmangled_macros() {
+    macro_rules! test_expr {
+        ($val:expr) => {
+            ($val + 1) > 0
+        };
+    }
+
+    let x = 5;
+    match test_expr!(x) {
+        //~^ match_bool
+        true => 1,
+        false => 0,
+    };
+}
+
 fn main() {}

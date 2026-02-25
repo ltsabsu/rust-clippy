@@ -10,7 +10,7 @@
     clippy::unnecessary_wraps,
     dyn_drop,
     clippy::get_first,
-    elided_named_lifetimes
+    mismatched_lifetime_syntaxes
 )]
 
 extern crate proc_macros;
@@ -470,11 +470,34 @@ mod in_macro {
         }
     }
 
-    // no lint on external macro
+    // no lint on external macro (standalone function)
     external! {
         fn needless_lifetime<'a>(x: &'a u8) -> &'a u8 {
             unimplemented!()
         }
+    }
+
+    // no lint on external macro (method in impl block)
+    external! {
+        struct ExternalStruct;
+
+        impl ExternalStruct {
+            fn needless_lifetime_method<'a>(x: &'a u8) -> &'a u8 {
+                unimplemented!()
+            }
+        }
+    }
+
+    // no lint on external macro (trait method)
+    external! {
+        trait ExternalTrait {
+            fn needless_lifetime_trait_method<'a>(x: &'a u8) -> &'a u8;
+        }
+    }
+
+    // no lint on external macro (extra unused lifetimes in function)
+    external! {
+        fn extra_unused_lifetime<'a>(x: u8) {}
     }
 
     inline! {
@@ -532,6 +555,13 @@ mod issue13749bis {
     // Non elidable lifetime
     #[expect(clippy::extra_unused_lifetimes)]
     impl<'a, T: 'a> Generic<T> {}
+}
+
+pub fn issue14607<'s>(x: &'s u8) {
+    #[expect(clippy::redundant_closure_call)]
+    (|| {
+        let _: &'s u8 = x;
+    })();
 }
 
 fn main() {}

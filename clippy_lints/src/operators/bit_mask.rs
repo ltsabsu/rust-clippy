@@ -47,7 +47,6 @@ fn check_compare<'a>(cx: &LateContext<'a>, bit_op: &Expr<'a>, cmp_op: BinOpKind,
     }
 }
 
-#[allow(clippy::too_many_lines)]
 fn check_bit_mask(
     cx: &LateContext<'_>,
     bit_op: BinOpKind,
@@ -72,15 +71,13 @@ fn check_bit_mask(
                     span_lint(cx, BAD_BIT_MASK, span, "&-masking with zero");
                 }
             },
-            BinOpKind::BitOr => {
-                if mask_value | cmp_value != cmp_value {
-                    span_lint(
-                        cx,
-                        BAD_BIT_MASK,
-                        span,
-                        format!("incompatible bit mask: `_ | {mask_value}` can never be equal to `{cmp_value}`"),
-                    );
-                }
+            BinOpKind::BitOr if mask_value | cmp_value != cmp_value => {
+                span_lint(
+                    cx,
+                    BAD_BIT_MASK,
+                    span,
+                    format!("incompatible bit mask: `_ | {mask_value}` can never be equal to `{cmp_value}`"),
+                );
             },
             _ => (),
         },
